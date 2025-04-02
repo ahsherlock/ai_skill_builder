@@ -16,14 +16,28 @@ def render_home_view():
     if option == "Enter a Topic":
         topic = st.text_input("What topic would you like to learn about?")
     elif option == "Upload a Resume":
-        resume_file = st.file_uploader("Upload your resume (text file)", type=["txt"])
+        resume_file = st.file_uploader("Upload your resume (PDF, Word, or TXT)", type=["pdf", "docx", "txt"])
         if resume_file:
-            resume_text = resume_file.read().decode("utf-8")
-            skills = resume_scanner_agent(resume_text)
-            st.write("Detected Skills:", skills)
+            file_type = resume_file.name.split(".")[-1].lower()
+            initial_skills = resume_scanner_agent(resume_file, file_type)
+            st.write("Detected Skills & Topics from Resume:")
+            
+            # Multi-select for user to keep/remove skills
+            selected_skills = st.multiselect(
+                "Choose skills/topics to include (deselect to remove):",
+                options=initial_skills,
+                default=initial_skills
+            )
+            if selected_skills:
+                skills = selected_skills
+            else:
+                st.warning("Please select at least one skill/topic.")
+                skills = None
 
     if st.button("Generate Learning Experience"):
         if topic or skills:
             st.session_state.topic = topic
             st.session_state.skills = skills
             st.session_state.view = "Results"
+        else:
+            st.error("Please provide a topic or select skills from your resume.")
