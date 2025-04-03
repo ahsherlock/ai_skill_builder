@@ -3,7 +3,7 @@ import json
 from src.config.settings import GEMINI_API_KEY
 
 def professor_agent(topic):
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
     prompt = f"Create a detailed knowledge base for {topic}. Include an introduction and examples in markdown format."
     headers = {"Content-Type": "application/json"}
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
