@@ -3,47 +3,77 @@ from src.agents.resume import resume_scanner_agent, split_skills
 from src.config.settings import supabase
 
 def render_home_view():
-    st.write(f"Welcome, {st.session_state.user.email}!")
-    if st.button("Logout"):
-        supabase.auth.sign_out()
-        st.session_state.user = None
-        st.session_state.view = "Login"
-        st.rerun()
-
-    option = st.selectbox("Choose your starting point:", ["Enter a Topic", "Upload a Resume"])
-
-    with st.form(key="home_form", clear_on_submit=False):
-        topic = None
-        skills = None
-
-        if option == "Enter a Topic":
-            topic_input = st.text_input("What topic would you like to learn about?")
-            if topic_input:
-                topic_list = split_skills(topic_input)
-                if len(topic_list) > 1:
-                    st.write("Detected multiple topics/skills:")
-                    selected_topics = st.multiselect("Choose topics to include:", topic_list, default=topic_list)
-                    skills = selected_topics if selected_topics else None
+    # Replace your welcome line
+    user_email = getattr(st.session_state.user, 'email', None)
+    if not user_email and isinstance(st.session_state.user, dict):
+        user_email = st.session_state.user.get('email', 'Skilled One')
+    st.markdown(f"### Yo, {user_email}, ready to sharpen your blade?")
+    
+    # Add columns for radio
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        option = st.radio("Pick your path:", ["Enter a Topic", "Upload a Resume"], horizontal=True)
+    
+    # Store parsed resume skills in session state
+    if "parsed_resume_skills" not in st.session_state:
+        st.session_state.parsed_resume_skills = []
+    
+    # Handle topic input
+    if option == "Enter a Topic":
+        with st.form(key="topic_form", clear_on_submit=False):
+            topic_input = st.text_input("What's your skill grind?", placeholder="e.g., Python, Java", key="topic_input")
+            
+            submit_topic = st.form_submit_button("Forge My Path", use_container_width=True)
+            
+            if submit_topic:
+                if topic_input:
+                    topic_list = split_skills(topic_input)
+                    if len(topic_list) > 1:
+                        st.session_state.skills = topic_list
+                        st.session_state.topic = None
+                    else:
+                        st.session_state.topic = topic_list[0]
+                        st.session_state.skills = None
+                    
+                    st.session_state.view = "Results"
+                    st.rerun()
                 else:
-                    topic = topic_list[0]
-        elif option == "Upload a Resume":
-            resume_file = st.file_uploader("Upload your resume (PDF, Word, or TXT)", type=["pdf", "docx", "txt"])
-            if resume_file:
-                file_type = resume_file.name.split(".")[-1].lower()
-                initial_skills = resume_scanner_agent(resume_file, file_type)
-                st.write("Detected Skills & Topics from Resume:")
-                selected_skills = st.multiselect("Choose skills/topics to include:", initial_skills, default=initial_skills)
-                skills = selected_skills if selected_skills else None
-
-        # Form submit button
-        submit_button = st.form_submit_button(label="Generate Learning Experience")
-
-        # Handle submission (Enter or click)
-        if submit_button:
-            if topic or skills:
-                st.session_state.topic = topic
-                st.session_state.skills = skills
-                st.session_state.view = "Results"
-                st.rerun()  # Immediate switch to Results
-            else:
-                st.error("Please provide a topic or select skills.")
+                    st.error("Gimme a topic or skills to work with!")
+    
+    # Handle resume upload
+    elif option == "Upload a Resume":
+        # File uploader outside the form
+        resume_file = st.file_uploader("Drop your resume (PDF, DOCX, TXT)", type=["pdf", "docx", "txt"], key="resume_upload")
+        
+        if resume_file:
+            # Process the resume file to extract skills
+            if st.button("Analyze Resume", key="analyze_resume"):
+                with st.spinner("Analyzing your resume..."):
+                    file_type = resume_file.name.split(".")[-1].lower()
+                    extracted_skills = resume_scanner_agent(resume_file, file_type)
+                    st.session_state.parsed_resume_skills = extracted_skills
+            
+            # Display extracted skills if available
+            if st.session_state.parsed_resume_skills:
+                st.success(f"Found {len(st.session_state.parsed_resume_skills)} skills in your resume!")
+                
+                # Form for selecting skills and submitting
+                with st.form(key="skills_form"):
+                    st.markdown("### Select skills you want to focus on:")
+                    selected_skills = st.multiselect(
+                        "Choose which skills to develop:",
+                        st.session_state.parsed_resume_skills,
+                        default=[],
+                        key="selected_skills"
+                    )
+                    
+                    submit_skills = st.form_submit_button("Forge My Path with Selected Skills", use_container_width=True)
+                    
+                    if submit_skills:
+                        if selected_skills:
+                            st.session_state.skills = selected_skills
+                            st.session_state.topic = None
+                            st.session_state.view = "Results"
+                            st.rerun()
+                        else:
+                            st.error("Please select at least one skill from your resume to continue")
